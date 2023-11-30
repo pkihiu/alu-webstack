@@ -1,14 +1,28 @@
 #!/usr/bin/env bash
 # Output: The subdomain [SUB_DOMAIN] is a [RECORD_TYPE] record and points to [DESTINATION]
-print_domain_record () {
-    record_and_ip=$(dig "$2"."$1" | grep -A1 'ANSWER SECTION:' | tail -1 | awk '{print $4, $NF}')
-    echo "$2" $record_and_ip | awk '{print "The subdomain " $1 " is a " $2 " record and points to " $3}'
+
+print_domain_record() {
+    local full_subdomain="$2.$1"
+    local record_and_ips=$(dig +short "$full_subdomain")
+
+    if [ -n "$record_and_ips" ]; then
+        local record_type=$(dig "$full_subdomain" | awk '/ANSWER SECTION:/ {getline; print $1}')
+        echo "The subdomain $2 is a $record_type record and points to:"
+        
+        # Iterate over each IP address
+        while IFS= read -r ip; do
+            echo "  - $ip"
+        done <<< "$record_and_ips"
+    else
+        echo "Error: Unable to retrieve DNS information for $full_subdomain"
+    fi
 }
 
-if [ "$#" == 2 ]; then
-    print_domain_record "$1" "$2"
-else
+if [ "$#" == 1 ]; then
+    domain="$1"
     for sub in "www" "lb-01" "web-01" "web-02"; do
-        print_domain_record "$1" "$sub"
+        print_domain_record "$domain" "$sub"
     done
+else
+    echo "Usage: $0 <domain>"
 fi
